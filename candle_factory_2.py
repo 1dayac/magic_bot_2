@@ -12,6 +12,7 @@ import win32api, win32con, win32process
 import time, subprocess
 import platform
 from card import Card, Price
+import xml.etree.ElementTree as ET
 
 states_my = [State(name = 'initial'),
              State(name = 'login', on_enter = ['login']),
@@ -89,6 +90,31 @@ class HotlistProcessor(object):
         rows = table.find_elements_by_tag_name('tr')
         return rows
 
+    def ParseAndDivideXML(self, xml):
+        import xml.etree.ElementTree as ET
+        import copy
+        tree = ET.parse(xml)
+        root = tree.getroot()
+        number_of_cards = 20
+        count = 0
+        while True:
+            print(count)
+            if count * number_of_cards > len(list(root)):
+                break
+            temp_root = copy.deepcopy(root)
+            start = 1 + count * number_of_cards
+            end = 1 + (count + 1) * number_of_cards
+            index = 0
+            childs = list(temp_root)
+            for i in range(1, start):
+                temp_root.remove(childs[i])
+            for i in range(end, len(childs)):
+                temp_root.remove(childs[i])
+            print(len(list(temp_root)))
+            tree = ET(temp_root)
+            tree.write(open(r'temp_xml\hotlist_' + str(count) + '.xml', 'w'), encoding='unicode')
+            count += 1
+
     def processHotlist(self):
         self.rows = self.openHotlist()
         while self.i < len(self.rows):
@@ -120,6 +146,7 @@ class HotlistProcessor(object):
         card_pool.append(card)
         os.remove('C:\Users\dmm2017\Downloads\hotlist.dek')
         self.driver_hotlist.get("http://www.mtgotraders.com/hotlist/data/download.php")
+        self.ParseAndDivideXML(r'C:\Users\dmm2017\Downloads\hotlist.dek')
 
 
 def is_basic_land(card):
