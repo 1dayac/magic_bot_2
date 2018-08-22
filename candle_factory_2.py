@@ -226,6 +226,7 @@ class MTGO_bot(object):
             subprocess.Popen(['cmd.exe', '/c', r'C:\Users\dmm2017\Desktop\mtgo.appref-ms'])
             time.sleep(5)
             self.app = Application(backend="uia").connect(path='MTGO.exe')
+        self.bot_to_sell = "GoatBots3"
 
     def close(self):
         os.system("taskkill /f /im  MTGO.exe")
@@ -237,7 +238,7 @@ class MTGO_bot(object):
         except:
             pass
         try:
-            self.app['Magic: The Gathering Online'].window(auto_id="UsernameTextBox").type_keys("Weill")
+            self.app['Magic: The Gathering Online'].window(auto_id="UsernameTextBox").type_keys("VerzillaBot")
             self.app['Magic: The Gathering Online'].window(auto_id="PasswordBox").type_keys("Lastborn220")
             time.sleep(2.5)
             self.app['Magic: The Gathering Online'].window(auto_id="PasswordBox").type_keys("{ENTER}")
@@ -387,6 +388,38 @@ class MTGO_bot(object):
                 print("Unexpected error:", sys.exc_info()[1])
                 traceback.print_exc(file=sys.stdout)
 
+
+
+    def click_bot_trade(self, botname):
+        index = 0
+        while True:
+            try:
+                index += 1
+                if index == 5:
+                    return False
+                go_to_rectangle(self.app['Magic: The Gathering Online'].window(title=botname).rectangle())
+                click_rectangle(self.app['Magic: The Gathering Online'].window(title="Trade", found_index=1).rectangle())
+                time.sleep(1)
+                click_ok_button(self.app)
+                return True
+            except:
+                pass
+
+    def is_trade_cancelled(self):
+        try:
+            self.app.top_window().window(title="Trade Canceled", found_index=1).rectangle()
+            click_rectangle(self.app.top_window().window(auto_id="OkButton", found_index=0).rectangle())
+            return True
+        except:
+            return False
+
+    def is_trade_stalled(self):
+        try:
+            click_rectangle(self.app.top_window().window(title="Trade Request", found_index=0).window(title="Cancel", found_index = 0).rectangle())
+            return True
+        except:
+            return False
+
     def switch_bot(self):
         if self.db_record[6] == "HotListBot3":
             self.db_record[6] = "HotListBot4"
@@ -407,6 +440,37 @@ class MTGO_bot(object):
     def checkbuyprices(self):
         processor = HotlistProcessor()
         processor.processHotlist()
+
+    def checksellprices(self):
+        try:
+            click_rectangle(self.app['ToastView'].child_window(auto_id = "CloseButton").rectangle())
+        except:
+            pass
+        try:
+            print("Go to buy card...")
+            try:
+                click_trade(self.app)
+                self.app['Magic: The Gathering Online']['Rad Docking'].window(auto_id="searchTextBox").type_keys(
+                    self.bot_to_sell + "{ENTER}")
+            except:
+                return
+
+            if not self.click_bot_trade(self.bot_to_sell):
+                print("Bot is offline")
+                self.is_trade_cancelled()
+                return
+            time.sleep(5)
+
+            while self.is_trade_cancelled():
+                self.click_bot_trade(self.bot_to_sell)
+                time.sleep(3)
+
+            if self.is_trade_stalled():
+                return
+
+        except:
+            pass
+
 
 while True:
     try:
