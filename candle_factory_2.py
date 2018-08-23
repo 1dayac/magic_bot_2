@@ -226,7 +226,9 @@ class MTGO_bot(object):
             subprocess.Popen(['cmd.exe', '/c', r'C:\Users\dmm2017\Desktop\mtgo.appref-ms'])
             time.sleep(5)
             self.app = Application(backend="uia").connect(path='MTGO.exe')
-        self.bot_to_sell = "GoatBots3"
+        self.bot_to_buy = "GoatBots3"
+        self.bot_to_sell = "HotListBot3"
+
 
     def close(self):
         os.system("taskkill /f /im  MTGO.exe")
@@ -295,98 +297,95 @@ class MTGO_bot(object):
                 pyautogui.click()
                 pass
 
-        def sell_card(self):
+    def sell_card(self):
+        try:
+            click_rectangle(self.app.top_window().child_window(auto_id="CloseButton").rectangle())
+        except:
+            pass
+        try:
+            print("Go to sell card...")
+            print("Selling " + self.bot_to_sell + " to " + self.bot_to_sell)
             try:
-                click_rectangle(self.app.top_window().child_window(auto_id="CloseButton").rectangle())
+                click_trade(self.app)
+                self.app.top_window().window(auto_id="searchTextBox").type_keys(self.bot_to_sell + "{ENTER}")
+            except:
+                return
+
+            while not self.click_bot_trade(
+                    self.bot_to_sell) or self.is_trade_cancelled() or self.is_trade_stalled():
+                self.switch_bot()
+
+            time.sleep(6)
+            window_sell_name = "Trade: " + self.bot_to_sell
+
+            try:
+                num_of_tix = get_tix_number(self.app, self.bot_to_sell)
+            except:
+                raise Exception
+            try:
+                if num_of_tix != 0:
+                    click_rectangle(
+                        self.app[window_sell_name].window(title="Other Products", found_index=1).rectangle()
+                    double_click_multiple(
+                        self.app[window_sell_name].child_window(title_re="Item: CardSlot: Event", found_index=0),
+                        num_of_tix)
             except:
                 pass
+
+            click_rectangle(self.app[window_sell_name].window(title="Submit", found_index=1).rectangle())
+            time.sleep(5)
             try:
-                print("Go to sell card...")
-                print("Selling " + self.db_record[0] + " to " + self.db_record[6])
-                try:
-                    click_trade(self.app)
-                    self.app.top_window().window(auto_id="searchTextBox").type_keys(self.db_record[6] + "{ENTER}")
-                except:
-                    return
-
-                while not self.click_bot_trade(
-                        self.db_record[6]) or self.is_trade_cancelled() or self.is_trade_stalled():
-                    self.switch_bot()
-
-                time.sleep(6)
-                window_sell_name = "Trade: " + self.db_record[6]
-
-                try:
-                    num_of_tix = get_tix_number(self.app, self.db_record[6])
-                except:
-                    raise Exception
-                try:
-                    if num_of_tix != 0:
-                        click_rectangle(
-                            self.app[window_sell_name].window(title="Other Products", found_index=1).rectangle())
-                        if self.db_record[6].startswith("Goat"):
-                            self.app[window_sell_name].window(auto_id="searchTextBox").type_keys(
-                                "event{SPACE}tickets{ENTER}")
-                        double_click_multiple(
-                            self.app[window_sell_name].child_window(title_re="Item: CardSlot: Event", found_index=0),
-                            num_of_tix)
-                except:
-                    pass
-
                 click_rectangle(self.app[window_sell_name].window(title="Submit", found_index=1).rectangle())
-                time.sleep(5)
+            except:
+                pass
+            time.sleep(3)
+            index = 0
+            while True:
                 try:
-                    click_rectangle(self.app[window_sell_name].window(title="Submit", found_index=1).rectangle())
+                    index += 1
+                    click_rectangle(
+                        self.app[window_sell_name].window(title="Confirm Trade", found_index=1).rectangle())
+                    time.sleep(1)
+                    break
                 except:
+                    if index == 10:
+                        raise NoConfirmTradeException()
                     pass
-                time.sleep(3)
-                index = 0
-                while True:
+
+            close_chat(self.app)
+            index = 0
+            while True:
+                try:
+                    index += 1
+                    print("Trying to close window with stuff")
+                    click_rectangle(
+                        self.app.top_window().window(title="Added to your Collection:", found_index=0).window(
+                            auto_id="TitleBarCloseButton").rectangle())
+                    time.sleep(1)
+                    break
+                except:
+                    if index == 20:
+                        return
                     try:
-                        index += 1
-                        click_rectangle(
-                            self.app[window_sell_name].window(title="Confirm Trade", found_index=1).rectangle())
-                        time.sleep(1)
+                        print("Trying to close window without stuff")
+                        click_rectangle(self.app.top_window().window(auto_id="OkButton", found_index=0).rectangle())
                         break
                     except:
-                        if index == 10:
-                            raise NoConfirmTradeException()
                         pass
 
+        except NoConfirmTradeException:
+            try:
+                click_rectangle(self.app.top_window().window(title="Cancel Trade", found_index=0).rectangle())
                 close_chat(self.app)
-                index = 0
-                while True:
-                    try:
-                        index += 1
-                        print("Trying to close window with stuff")
-                        click_rectangle(
-                            self.app.top_window().window(title="Added to your Collection:", found_index=0).window(
-                                auto_id="TitleBarCloseButton").rectangle())
-                        time.sleep(1)
-                        break
-                    except:
-                        if index == 20:
-                            return
-                        try:
-                            print("Trying to close window without stuff")
-                            click_rectangle(self.app.top_window().window(auto_id="OkButton", found_index=0).rectangle())
-                            break
-                        except:
-                            pass
-
-            except NoConfirmTradeException:
-                try:
-                    click_rectangle(self.app.top_window().window(title="Cancel Trade", found_index=0).rectangle())
-                    close_chat(self.app)
-                except:
-                    print(sys.exc_info()[0])
-                    print(sys.exc_info()[1])
-                    traceback.print_exc(file=sys.stdout)
-                    pass
             except:
-                print("Unexpected error:", sys.exc_info()[0])
-                print("Unexpected error:", sys.exc_info()[1])
+                print(sys.exc_info()[0])
+                print(sys.exc_info()[1])
                 traceback.print_exc(file=sys.stdout)
+                pass
+        except:
+            print("Unexpected error:", sys.exc_info()[0])
+            print("Unexpected error:", sys.exc_info()[1])
+            traceback.print_exc(file=sys.stdout)
 
 
 
@@ -451,23 +450,27 @@ class MTGO_bot(object):
             try:
                 click_trade(self.app)
                 self.app['Magic: The Gathering Online']['Rad Docking'].window(auto_id="searchTextBox").type_keys(
-                    self.bot_to_sell + "{ENTER}")
+                    self.bot_to_buy + "{ENTER}")
             except:
                 return
 
-            if not self.click_bot_trade(self.bot_to_sell):
+            if not self.click_bot_trade(self.bot_to_buy):
                 print("Bot is offline")
                 self.is_trade_cancelled()
                 return
             time.sleep(5)
 
             while self.is_trade_cancelled():
-                self.click_bot_trade(self.bot_to_sell)
+                self.click_bot_trade(self.bot_to_buy)
                 time.sleep(3)
 
             if self.is_trade_stalled():
                 return
 
+            click_rectangle(self.app.top_window().window(title="Search Tools", found_index=0).rectangle())
+            click_rectangle(self.app.top_window().window(title="Search Tools", found_index=0).window(title="Import Deck",
+                                                                                                      found_index=0).rectangle())
+            double_click_rectangle(self.app.top_window().window(auto_id = "System.ItemNameDisplay", found_index=0).rectangle)
         except:
             pass
 
