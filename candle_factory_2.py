@@ -51,103 +51,103 @@ if platform.system() == "Windows":
 else:
     chromedriver_path = "/home/dmm2017/PycharmProjects/candle_factory/chromedriver"
 
-card_pool = []
-class HotlistProcessor(object):
-
-    def __init__(self):
-        self.start_from = "1"
-        self.set = "1"
-        self.rows = []
-        self.driver_hotlist = None
-        self.start = None
-        self.i = 0
-
-
-    def restart(self):
-        self.start_from = "1"
-        self.set = "1"
-        self.rows = []
-        self.driver_hotlist.quit()
-        self.driver_hotlist = None
-        self.start = None
-        self.i = 0
-
-    def openHotlist(self):
-        card_pool = []
-        url = "http://www.mtgotraders.com/hotlist/#/"
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--headless")
-        self.driver_hotlist = webdriver.Chrome(chromedriver_path, options = chrome_options)
-        self.driver_hotlist.get(url)
-        time.sleep(60)
-        elems = self.driver_hotlist.find_elements_by_class_name('btn')
-        elems[0].click()
-        elems_2 = self.driver_hotlist.find_element_by_xpath(
-            "//*[@id=\"mainContent\"]/div[2]/div[1]/div[2]/div[4]/div[1]/span[2]/span/ul/li[5]")
-        elems_2.click()
-        time.sleep(4)
-        table = self.driver_hotlist.find_element_by_id('main-table')
-        rows = table.find_elements_by_tag_name('tr')
-        return rows
-
-    def ParseAndDivideXML(self, xml):
-        import xml.etree.ElementTree as ET
-        import copy
-        tree = ET.parse(xml)
-        root = tree.getroot()
-        number_of_cards = 20
-        count = 0
-        while True:
-            print(count)
-            if count * number_of_cards > len(list(root)):
-                break
-            temp_root = copy.deepcopy(root)
-            start = 1 + count * number_of_cards
-            end = 1 + (count + 1) * number_of_cards
-            index = 0
-            childs = list(temp_root)
-            for i in range(1, start):
-                temp_root.remove(childs[i])
-            for i in range(end, len(childs)):
-                temp_root.remove(childs[i])
-            print(len(list(temp_root)))
-            tree = ET(temp_root)
-            tree.write(open(r'temp_xml\hotlist_' + str(count) + '.xml', 'w'), encoding='unicode')
-            count += 1
-
-    def processHotlist(self):
-        self.rows = self.openHotlist()
-        while self.i < len(self.rows):
-            self.processRow(self.rows[self.i])
-            self.i += 1
-
-    def processRow(self, row):
-        columns = row.find_elements_by_tag_name('td')
-        if len(columns) < 3:
-            return
-        setname = columns[0].text
-        self.set = setname
-        cardname = columns[1].text
-
-        price = float(columns[3].text)
-        if setname < self.start_from:
-            return
-        if price < 0.05:
-            return
-        foil = cardname.endswith("*")
-        if foil:
-            cardname = cardname[:-7]
-
-        print(setname + " " + cardname + " " + str(price))
-        price_struct = Price("", price, 10000, "HotListBot3", "", 0)
-        card = Card(cardname, setname, price_struct, foil)
-        if is_basic_land(card) or ((card.set == "MS2" or card.set == "MS3") and card.foil):
-            return
-        card_pool.append(card)
-        os.remove('C:\Users\dmm2017\Downloads\hotlist.dek')
-        self.driver_hotlist.get("http://www.mtgotraders.com/hotlist/data/download.php")
-        self.ParseAndDivideXML(r'C:\Users\dmm2017\Downloads\hotlist.dek')
-
+# card_pool = []
+# class HotlistProcessor(object):
+#
+#     def __init__(self):
+#         self.start_from = "1"
+#         self.set = "1"
+#         self.rows = []
+#         self.driver_hotlist = None
+#         self.start = None
+#         self.i = 0
+#
+#
+#     def restart(self):
+#         self.start_from = "1"
+#         self.set = "1"
+#         self.rows = []
+#         self.driver_hotlist.quit()
+#         self.driver_hotlist = None
+#         self.start = None
+#         self.i = 0
+#
+#     def openHotlist(self):
+#         card_pool = []
+#         url = "http://www.mtgotraders.com/hotlist/#/"
+#         chrome_options = webdriver.ChromeOptions()
+#         chrome_options.add_argument("--headless")
+#         self.driver_hotlist = webdriver.Chrome(chromedriver_path, options = chrome_options)
+#         self.driver_hotlist.get(url)
+#         time.sleep(60)
+#         elems = self.driver_hotlist.find_elements_by_class_name('btn')
+#         elems[0].click()
+#         elems_2 = self.driver_hotlist.find_element_by_xpath(
+#             "//*[@id=\"mainContent\"]/div[2]/div[1]/div[2]/div[4]/div[1]/span[2]/span/ul/li[5]")
+#         elems_2.click()
+#         time.sleep(4)
+#         table = self.driver_hotlist.find_element_by_id('main-table')
+#         rows = table.find_elements_by_tag_name('tr')
+#         return rows
+#
+#     def ParseAndDivideXML(self, xml):
+#         import xml.etree.ElementTree as ET
+#         import copy
+#         tree = ET.parse(xml)
+#         root = tree.getroot()
+#         number_of_cards = 20
+#         count = 0
+#         while True:
+#             print(count)
+#             if count * number_of_cards > len(list(root)):
+#                 break
+#             temp_root = copy.deepcopy(root)
+#             start = 1 + count * number_of_cards
+#             end = 1 + (count + 1) * number_of_cards
+#             index = 0
+#             childs = list(temp_root)
+#             for i in range(1, start):
+#                 temp_root.remove(childs[i])
+#             for i in range(end, len(childs)):
+#                 temp_root.remove(childs[i])
+#             print(len(list(temp_root)))
+#             tree = ET(temp_root)
+#             tree.write(open(r'temp_xml\hotlist_' + str(count) + '.xml', 'w'), encoding='unicode')
+#             count += 1
+#
+#     def processHotlist(self):
+#         self.rows = self.openHotlist()
+#         while self.i < len(self.rows):
+#             self.processRow(self.rows[self.i])
+#             self.i += 1
+#
+#     def processRow(self, row):
+#         columns = row.find_elements_by_tag_name('td')
+#         if len(columns) < 3:
+#             return
+#         setname = columns[0].text
+#         self.set = setname
+#         cardname = columns[1].text
+#
+#         price = float(columns[3].text)
+#         if setname < self.start_from:
+#             return
+#         if price < 0.05:
+#             return
+#         foil = cardname.endswith("*")
+#         if foil:
+#             cardname = cardname[:-7]
+#
+#         print(setname + " " + cardname + " " + str(price))
+#         price_struct = Price("", price, 10000, "HotListBot3", "", 0)
+#         card = Card(cardname, setname, price_struct, foil)
+#         if is_basic_land(card) or ((card.set == "MS2" or card.set == "MS3") and card.foil):
+#             return
+#         card_pool.append(card)
+#         os.remove('C:\Users\dmm2017\Downloads\hotlist.dek')
+#         self.driver_hotlist.get("http://www.mtgotraders.com/hotlist/data/download.php")
+#         self.ParseAndDivideXML(r'C:\Users\dmm2017\Downloads\hotlist.dek')
+#
 
 def is_basic_land(card):
     return card.name == "Swamp" or card.name == "Island" or card.name == "Mountain" or card.name == "Plains" or card.name == "Forest" or card.name.startswith("Urza's")
@@ -436,9 +436,69 @@ class MTGO_bot(object):
             self.db_record[6] = "GoatBots1"
         self.app['Magic: The Gathering Online'].window(auto_id="searchTextBox").type_keys(self.db_record[6] + "{ENTER}")
 
+
+    def click_bot_trade(self, botname):
+        index = 0
+        while True:
+            try:
+                index += 1
+                if index == 5:
+                    return False
+                go_to_rectangle(self.app.top_window().window(title=botname).rectangle())
+                click_rectangle(self.app.top_window().window(auto_id="Trade", found_index=1).rectangle())
+                time.sleep(1)
+                click_rectangle(self.app.top_window().window(auto_id="BBinder", found_index=0).rectangle())
+                click_ok_button(self.app)
+                return True
+            except:
+                pass
+
+    def is_trade_cancelled(self):
+        try:
+            self.app.top_window().window(title="Trade Canceled", found_index=1).rectangle()
+            click_rectangle(self.app.top_window().window(auto_id="OkButton", found_index=0).rectangle())
+            return True
+        except:
+            return False
+
+    def get_prices(self):
+        try:
+            import io
+            import sys
+            stringio = io.StringIO()
+            previous_stdout = sys.stdout
+            sys.stdout = stringio
+            self.app.top_window().window(auto_id="ChatItemsControl").print_control_identifiers()
+            sys.stdout = previous_stdout
+            string = stringio.getvalue()
+
+        except:
+            return None
+
     def checkbuyprices(self):
-        processor = HotlistProcessor()
-        processor.processHotlist()
+        try:
+            print("Go to check GoatBots prices...")
+            self.sell_bot_name = "GoatBots3"
+            try:
+                click_trade(self.app)
+                self.app.top_window().window(auto_id="searchTextBox").type_keys("@" + sell_bot_name + "{ENTER}")
+            except:
+                return
+
+
+            while self.is_trade_cancelled():
+                self.switch_bot()
+                self.click_bot_trade(self.sell_bot_name)
+                time.sleep(5)
+
+            click_rectangle(self.app.top_window().window(title="Search Tools", found_index=0).rectangle())
+            click_rectangle(self.app.top_window().window(title="AKH", found_index=0).rectangle())
+            click_rectangle(self.app.top_window().window(title="Select", found_index=0).rectangle())
+            time.sleep(8)
+            self.sell_prices = self.get_prices()
+        except:
+            pass
+
 
     def checksellprices(self):
         try:
