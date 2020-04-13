@@ -1,6 +1,7 @@
 import sqlite3
 from transitions import Machine, State
 from pywinauto.application import Application
+from pywinauto import keyboard
 import pyautogui
 import sys
 import os
@@ -11,15 +12,18 @@ from selenium import webdriver
 import win32api, win32con, win32process
 import time, subprocess
 import platform
+import copy
 from card import Card, Price
+from goatbot_parser import GoatbotsParser
+from hotlist_processor import HotlistProcessor2
 import xml.etree.ElementTree as ET
 
 states_my = [State(name = 'initial'),
              State(name = 'login', on_enter = ['login']),
-             State(name = 'checkbuyprices', on_enter = ['checkbuycard']),
-             State(name='checksellprices', on_enter=['checksellcard']),
-             State(name='compute_differences', on_enter=['compute_diff']),
-             State(name='buy', on_enter=['buy_card']),
+             State(name='download_and_split', on_enter=['download_and_split']),
+             State(name = 'checkbuyprices', on_enter = ['checkbuyprices']),
+             State(name=  'compute_differences', on_enter=['compute_diff']),
+             State(name=  'buy', on_enter=['buy_cards']),
              State(name = 'update_binder_after_buying', on_enter = ['update_binder_after_buy']),
              State(name = 'sell', on_enter = ['sell_card']),
              State(name = 'update_binder_after_selling', on_enter = ['update_binder_after_sell']),
@@ -27,16 +31,15 @@ states_my = [State(name = 'initial'),
 
 transitions = [
     {'trigger': 'go_to_login', 'source': 'initial', 'dest': 'login'},
-    {'trigger': 'go_to_check_buy_prices', 'source': 'login', 'dest': 'checkbuyprices'},
-    {'trigger': 'go_to_check_sell_prices', 'source': 'checkbuyprices', 'dest': 'checksellprices'},
-    {'trigger': 'go_to_compute_differences', 'source': 'checksellprices', 'dest': 'compute_differences'},
+    {'trigger': 'go_to_download_and_split', 'source': 'login', 'dest': 'download_and_split'},
+    {'trigger': 'go_to_check_buy_prices', 'source': 'download_and_split', 'dest': 'checkbuyprices'},
+    {'trigger': 'go_to_compute_differences', 'source': 'checkbuyprices', 'dest': 'compute_differences'},
     {'trigger': 'go_to_buy', 'source': 'compute_differences', 'dest': 'buy'},
     {'trigger': 'go_to_update', 'source': 'buy', 'dest': 'update_binder_after_buying'},
     {'trigger': 'go_to_sell', 'source': 'update_binder_after_buying', 'dest': 'sell'},
     {'trigger': 'go_to_update', 'source': 'sell', 'dest': 'update_binder_after_selling'},
     {'trigger': 'go_to_buy', 'source': 'update_binder_after_selling', 'dest': 'checkbuyprices'},
-    {'trigger': 'go_to_restart', 'source': 'checkbuyrices', 'dest': 'close'},
-    {'trigger': 'go_to_restart', 'source': 'checksellprices', 'dest': 'close'},
+    {'trigger': 'go_to_restart', 'source': 'checkbuyprices', 'dest': 'close'},
     {'trigger': 'go_to_restart', 'source': 'compute_differences', 'dest': 'close'},
     {'trigger': 'go_to_restart', 'source': 'update_binder_after_selling', 'dest': 'close'},
     {'trigger': 'go_to_restart', 'source': 'sell', 'dest': 'close'},
@@ -47,107 +50,10 @@ transitions = [
 
 
 if platform.system() == "Windows":
-    chromedriver_path = r"C:\Users\IEUser\Desktop\magic_bot_2\chromedriver.exe"
+    chromedriver_path = r"C:\Users\meles\Desktop\magic_bot_3\chromedriver.exe"
 else:
     chromedriver_path = "/home/dmm2017/PycharmProjects/candle_factory/chromedriver"
 
-# card_pool = []
-# class HotlistProcessor(object):
-#
-#     def __init__(self):
-#         self.start_from = "1"
-#         self.set = "1"
-#         self.rows = []
-#         self.driver_hotlist = None
-#         self.start = None
-#         self.i = 0
-#
-#
-#     def restart(self):
-#         self.start_from = "1"
-#         self.set = "1"
-#         self.rows = []
-#         self.driver_hotlist.quit()
-#         self.driver_hotlist = None
-#         self.start = None
-#         self.i = 0
-#
-#     def openHotlist(self):
-#         card_pool = []
-#         url = "http://www.mtgotraders.com/hotlist/#/"
-#         chrome_options = webdriver.ChromeOptions()
-#         chrome_options.add_argument("--headless")
-#         self.driver_hotlist = webdriver.Chrome(chromedriver_path, options = chrome_options)
-#         self.driver_hotlist.get(url)
-#         time.sleep(60)
-#         elems = self.driver_hotlist.find_elements_by_class_name('btn')
-#         elems[0].click()
-#         elems_2 = self.driver_hotlist.find_element_by_xpath(
-#             "//*[@id=\"mainContent\"]/div[2]/div[1]/div[2]/div[4]/div[1]/span[2]/span/ul/li[5]")
-#         elems_2.click()
-#         time.sleep(4)
-#         table = self.driver_hotlist.find_element_by_id('main-table')
-#         rows = table.find_elements_by_tag_name('tr')
-#         return rows
-#
-#     def ParseAndDivideXML(self, xml):
-#         import xml.etree.ElementTree as ET
-#         import copy
-#         tree = ET.parse(xml)
-#         root = tree.getroot()
-#         number_of_cards = 20
-#         count = 0
-#         while True:
-#             print(count)
-#             if count * number_of_cards > len(list(root)):
-#                 break
-#             temp_root = copy.deepcopy(root)
-#             start = 1 + count * number_of_cards
-#             end = 1 + (count + 1) * number_of_cards
-#             index = 0
-#             childs = list(temp_root)
-#             for i in range(1, start):
-#                 temp_root.remove(childs[i])
-#             for i in range(end, len(childs)):
-#                 temp_root.remove(childs[i])
-#             print(len(list(temp_root)))
-#             tree = ET(temp_root)
-#             tree.write(open(r'temp_xml\hotlist_' + str(count) + '.xml', 'w'), encoding='unicode')
-#             count += 1
-#
-#     def processHotlist(self):
-#         self.rows = self.openHotlist()
-#         while self.i < len(self.rows):
-#             self.processRow(self.rows[self.i])
-#             self.i += 1
-#
-#     def processRow(self, row):
-#         columns = row.find_elements_by_tag_name('td')
-#         if len(columns) < 3:
-#             return
-#         setname = columns[0].text
-#         self.set = setname
-#         cardname = columns[1].text
-#
-#         price = float(columns[3].text)
-#         if setname < self.start_from:
-#             return
-#         if price < 0.05:
-#             return
-#         foil = cardname.endswith("*")
-#         if foil:
-#             cardname = cardname[:-7]
-#
-#         print(setname + " " + cardname + " " + str(price))
-#         price_struct = Price("", price, 10000, "HotListBot3", "", 0)
-#         card = Card(cardname, setname, price_struct, foil)
-#         if is_basic_land(card) or ((card.set == "MS2" or card.set == "MS3") and card.foil):
-#             return
-#         card_pool.append(card)
-#         os.remove('C:\Users\dmm2017\Downloads\hotlist.dek')
-#         self.driver_hotlist.get("http://www.mtgotraders.com/hotlist/data/download.php")
-#         self.ParseAndDivideXML(r'C:\Users\dmm2017\Downloads\hotlist.dek')
-#
 
 def is_basic_land(card):
     return card.name == "Swamp" or card.name == "Island" or card.name == "Mountain" or card.name == "Plains" or card.name == "Forest" or card.name.startswith("Urza's")
@@ -217,23 +123,95 @@ def get_tix_number(app, botname):
     print("Taking " + str(num_of_tix) + " tix")
     return num_of_tix
 
+
+
+class HotlistProcessor(object):
+     def __init__(self):
+         self.driver_hotlist = None
+
+
+     def restart(self):
+         self.driver_hotlist.quit()
+         self.driver_hotlist = None
+
+     def Download(self):
+         url = "http://www.mtgotraders.com/hotlist/#/"
+         chrome_options = webdriver.ChromeOptions()
+         chrome_options.add_argument("--headless")
+
+         chrome_options.add_experimental_option("prefs", {
+             "download.default_directory": r"C:\Users\meles\Downloads",
+             "download.prompt_for_download": False,
+         })
+
+         self.driver_hotlist = webdriver.Chrome(chromedriver_path, options = chrome_options)
+         self.driver_hotlist.get(url)
+         time.sleep(30)
+
+
+
+     def ParseAndDivideXML(self):
+         try:
+             os.remove('C:\\Users\\meles\\Downloads\\hotlist.dek')
+         except:
+             pass
+
+         self.driver_hotlist.command_executor._commands["send_command"] = ("POST", '/session/$sessionId/chromium/send_command')
+         params = {'cmd': 'Page.setDownloadBehavior',
+                   'params': {'behavior': 'allow', 'downloadPath': r"C:\Users\meles\Downloads"}}
+         command_result = self.driver_hotlist.execute("send_command", params)
+
+         self.driver_hotlist.get("http://www.mtgotraders.com/hotlist/data/download.php")
+
+
+         time.sleep(10)
+         tree = ET.parse("C:\\Users\\meles\\Downloads\\hotlist.dek")
+         chunk_size = 100
+
+         round = int((len(tree.findall('Cards')) - 1) / chunk_size) + 1
+         print(round)
+
+         for i in range(round):
+             new_tree = copy.deepcopy(tree)
+             deck = new_tree.getroot()
+             cards = deck.findall('Cards')
+             print(len(cards))
+             cards_to_delete = cards[0:100 * i] + cards[100 * (i + 1):]
+             print(len(cards_to_delete))
+             for card in cards[0:100 * i]:
+                 deck.remove(card)
+             for card in cards[100 * (i + 1):]:
+                 deck.remove(card)
+             print(len(deck.findall('Cards')))
+             new_tree.write("hotlist" + str(i) + ".dek")
+         return round
+
 class MTGO_bot(object):
+
     def __init__(self):
         self.sell_bot = "HotListBot3"
         try:
             self.app = Application(backend="uia").connect(path='MTGO.exe')
         except:
-            subprocess.Popen(['cmd.exe', '/c', r'C:\Users\dmm2017\Desktop\mtgo.appref-ms'])
+            subprocess.Popen(['cmd.exe', '/c', r'C:\Users\meles\Desktop\mtgo.appref-ms'])
             time.sleep(5)
             self.app = Application(backend="uia").connect(path='MTGO.exe')
         self.bot_to_buy = "GoatBots3"
         self.bot_to_sell = "HotListBot3"
-
+        self.round = 0
+        self.rounds_total = 0
+        self.current_cards = []
+        self.hotlist_cards = []
+        self.cards_to_buy = []
 
     def close(self):
         os.system("taskkill /f /im  MTGO.exe")
 
+    def close_mtgo(self):
+        os.system("taskkill /f /im  MTGO.exe")
+
     def login(self):
+        return
         print("Starting...")
         try:
             click_rectangle(self.app.top_window().child_window(auto_id = "CloseButton").rectangle())
@@ -297,6 +275,42 @@ class MTGO_bot(object):
                 pyautogui.click()
                 pass
 
+    def compare_cards(self, card1, card2):
+        if card1.name == card2.name and card1.foil == card2.foil and (card1.set == "UNK" or card1.set == card2.set):
+            return True
+        return False
+
+    def compute_diff(self):
+        for card_goatbots in self.current_cards:
+            for card_hotlist in self.hotlist_cards:
+                if self.compare_cards(card_goatbots, card_hotlist):
+                            if card_hotlist.BestBuyPrice() > card_goatbots.BestSellPrice():
+                            self.cards_to_buy.append(card_goatbots)
+                            print(card_goatbots)
+
+    def download(self):
+        processor = HotlistProcessor()
+        try:
+            processor.Download()
+            self.rounds_total = processor.ParseAndDivideXML()
+            return True
+        except:
+            return False
+
+    def download_and_split(self):
+        #self.get_prices("GoatBots4")
+
+        processor = HotlistProcessor2()
+        self.hotlist_cards = processor.processHotlist()
+        processor.restart()
+        try:
+            os.remove("~/Downloads/hotlist.deck")
+        except:
+            pass
+
+        while not self.download():
+            continue
+
     def sell_card(self):
         try:
             click_rectangle(self.app.top_window().child_window(auto_id="CloseButton").rectangle())
@@ -304,28 +318,29 @@ class MTGO_bot(object):
             pass
         try:
             print("Go to sell card...")
-            print("Selling " + self.bot_to_sell + " to " + self.bot_to_sell)
+            print("Selling cards to " + self.bot_to_sell)
             try:
                 click_trade(self.app)
                 self.app.top_window().window(auto_id="searchTextBox").type_keys(self.bot_to_sell + "{ENTER}")
             except:
                 return
 
-            while not self.click_bot_trade(
-                    self.bot_to_sell) or self.is_trade_cancelled() or self.is_trade_stalled():
+            while not self.click_bot_trade(self.sell_bot, "Full Trade List") or self.is_trade_cancelled() or self.is_trade_stalled():
                 self.switch_bot()
 
             time.sleep(6)
+
             window_sell_name = "Trade: " + self.bot_to_sell
 
             try:
                 num_of_tix = get_tix_number(self.app, self.bot_to_sell)
             except:
                 raise Exception
+
             try:
                 if num_of_tix != 0:
                     click_rectangle(
-                        self.app[window_sell_name].window(title="Other Products", found_index=1).rectangle()
+                        self.app[window_sell_name].window(title="Other Products", found_index=1).rectangle())
                     double_click_multiple(
                         self.app[window_sell_name].child_window(title_re="Item: CardSlot: Event", found_index=0),
                         num_of_tix)
@@ -389,7 +404,7 @@ class MTGO_bot(object):
 
 
 
-    def click_bot_trade(self, botname):
+    def click_bot_trade(self, botname, binder):
         index = 0
         while True:
             try:
@@ -399,6 +414,7 @@ class MTGO_bot(object):
                 go_to_rectangle(self.app['Magic: The Gathering Online'].window(title=botname).rectangle())
                 click_rectangle(self.app['Magic: The Gathering Online'].window(title="Trade", found_index=1).rectangle())
                 time.sleep(1)
+                click_rectangle(self.app.top_window().window(auto_id=binder, found_index=0).rectangle())
                 click_ok_button(self.app)
                 return True
             except:
@@ -419,6 +435,28 @@ class MTGO_bot(object):
         except:
             return False
 
+    def switch_sell_bot(self):
+        if self.bot_to_sell == "HotListBot3":
+            self.bot_to_sell = "HotListBot4"
+        elif self.bot_to_sell == "HotListBot4":
+            self.bot_to_sell = "HotListBot"
+        elif self.bot_to_sell == "HotListBot":
+            self.bot_to_sell = "HotListBot2"
+        elif self.bot_to_sell == "HotListBot2":
+            self.bot_to_sell = "HotListBot3"
+        self.app['Magic: The Gathering Online'].window(auto_id="searchTextBox").type_keys(self.bot_to_sell + "{ENTER}")
+
+    def switch_goatbot(self):
+        if self.bot_to_buy == "GoatBots1":
+            self.bot_to_buy = "GoatBots2"
+        elif self.bot_to_buy == "GoatBots2":
+            self.bot_to_buy = "GoatBots3"
+        elif self.bot_to_buy == "GoatBots3":
+            self.bot_to_buy = "GoatBots4"
+        elif self.bot_to_buy == "GoatBots4":
+            self.bot_to_buy = "GoatBots1"
+        self.app['Magic: The Gathering Online'].window(auto_id="searchTextBox").type_keys(self.bot_to_buy + "{ENTER}")
+
     def switch_bot(self):
         if self.db_record[6] == "HotListBot3":
             self.db_record[6] = "HotListBot4"
@@ -437,22 +475,6 @@ class MTGO_bot(object):
         self.app['Magic: The Gathering Online'].window(auto_id="searchTextBox").type_keys(self.db_record[6] + "{ENTER}")
 
 
-    def click_bot_trade(self, botname):
-        index = 0
-        while True:
-            try:
-                index += 1
-                if index == 5:
-                    return False
-                go_to_rectangle(self.app.top_window().window(title=botname).rectangle())
-                click_rectangle(self.app.top_window().window(auto_id="Trade", found_index=1).rectangle())
-                time.sleep(1)
-                click_rectangle(self.app.top_window().window(auto_id="BBinder", found_index=0).rectangle())
-                click_ok_button(self.app)
-                return True
-            except:
-                pass
-
     def is_trade_cancelled(self):
         try:
             self.app.top_window().window(title="Trade Canceled", found_index=1).rectangle()
@@ -461,7 +483,19 @@ class MTGO_bot(object):
         except:
             return False
 
-    def get_prices(self):
+    def findall(self, p, s):
+        '''Yields all the positions of
+        the pattern p in the string s.'''
+        i = s.find(p)
+        while i != -1:
+            yield i
+            i = s.find(p, i + 1)
+
+
+    def buy_cards(self):
+        pass
+
+    def get_prices(self, botname):
         try:
             import io
             import sys
@@ -471,68 +505,50 @@ class MTGO_bot(object):
             self.app.top_window().window(auto_id="ChatItemsControl").print_control_identifiers()
             sys.stdout = previous_stdout
             string = stringio.getvalue()
-
+            string2 = string[string.rfind(botname + ":   "):]
+            parser = GoatbotsParser()
+            self.current_goatbot_cards = parser.parse(string2)
         except:
             return None
 
     def checkbuyprices(self):
         try:
             print("Go to check GoatBots prices...")
-            self.sell_bot_name = "GoatBots3"
+            self.bot_to_buy = "GoatBots3"
             try:
                 click_trade(self.app)
-                self.app.top_window().window(auto_id="searchTextBox").type_keys("@" + sell_bot_name + "{ENTER}")
+                self.app.top_window().window(auto_id="searchTextBox").type_keys(self.bot_to_buy + "{ENTER}")
             except:
                 return
 
-
-            while self.is_trade_cancelled():
-                self.switch_bot()
-                self.click_bot_trade(self.sell_bot_name)
-                time.sleep(5)
-
-            click_rectangle(self.app.top_window().window(title="Search Tools", found_index=0).rectangle())
-            click_rectangle(self.app.top_window().window(title="AKH", found_index=0).rectangle())
-            click_rectangle(self.app.top_window().window(title="Select", found_index=0).rectangle())
-            time.sleep(8)
-            self.sell_prices = self.get_prices()
-        except:
-            pass
-
-
-    def checksellprices(self):
-        try:
-            click_rectangle(self.app['ToastView'].child_window(auto_id = "CloseButton").rectangle())
-        except:
-            pass
-        try:
-            print("Go to buy card...")
-            try:
-                click_trade(self.app)
-                self.app['Magic: The Gathering Online']['Rad Docking'].window(auto_id="searchTextBox").type_keys(
-                    self.bot_to_buy + "{ENTER}")
-            except:
-                return
-
-            if not self.click_bot_trade(self.bot_to_buy):
+            if not self.click_bot_trade(self.bot_to_buy, "ABinder"):
                 print("Bot is offline")
                 self.is_trade_cancelled()
-                return
-            time.sleep(5)
 
-            while self.is_trade_cancelled():
-                self.click_bot_trade(self.bot_to_buy)
+            while self.is_trade_cancelled() or self.is_trade_stalled():
+                self.switch_goatbot()
+                self.click_bot_trade(self.bot_to_buy, "ABinder")
                 time.sleep(3)
 
-            if self.is_trade_stalled():
-                return
-
             click_rectangle(self.app.top_window().window(title="Search Tools", found_index=0).rectangle())
-            click_rectangle(self.app.top_window().window(title="Search Tools", found_index=0).window(title="Import Deck",
-                                                                                                      found_index=0).rectangle())
-            double_click_rectangle(self.app.top_window().window(auto_id = "System.ItemNameDisplay", found_index=0).rectangle)
+            click_rectangle(self.app.top_window().window(title="Import Deck", found_index=0).rectangle())
+            time.sleep(3)
+            keyboard.SendKeys("hotlist" + str(self.round) + ".dek" + "{ENTER}")
+            #self.app.top_window().window(title="File name:", found_index = 1).type_keys("hotlist" + str(self.round) + ".dek" + "{ENTER}")
+            try:
+                click_rectangle(self.app.top_window().window(auto_id="TitleBarCloseButton", found_index=0).rectangle())
+            except:
+                pass
+
+            time.sleep(16)
+            self.get_prices(self.bot_to_buy)
+            click_rectangle(self.app.top_window().window(title="Cancel Trade", found_index=1).rectangle())
+            time.sleep(3)
+            close_chat(self.app)
         except:
             pass
+
+
 
 
 while True:
@@ -540,20 +556,19 @@ while True:
         my_bot = MTGO_bot()
         my_MTGO_bot_Machine = Machine(model=my_bot, states=states_my, transitions=transitions, initial='initial')
         my_bot.go_to_login()
+        my_bot.go_to_download_and_split()
         while True:
             try:
                 my_bot.go_to_check_buy_prices()
-                my_bot.go_to_check_sell_prices()
                 my_bot.go_to_compute_differences()
                 my_bot.go_to_buy()
-                my_bot.go_to_update()
                 my_bot.go_to_sell()
                 my_bot.go_to_update()
-
             except:
                 my_bot.go_to_restart()
                 my_bot.__init__()
                 my_bot.go_to_login()
-
+                my_bot.download_and_split()
     except:
-        pass
+        print("Unexpected error:", sys.exc_info()[0])
+        traceback.print_exc(file=sys.stdout)
